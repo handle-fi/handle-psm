@@ -171,8 +171,8 @@ contract hPSM is Ownable {
         require(amountOutNet > 0, "PSM: prevented nil transfer");
         updateFeeForCollateral(
             peggedTokenAddress,
-            amountOutGross,
-            amountOutNet
+            amount,
+            calculateAmountAfterFees(amount)
         );
         fxToken(fxTokenAddress).mint(msg.sender, amountOutNet);
         emit Deposit(
