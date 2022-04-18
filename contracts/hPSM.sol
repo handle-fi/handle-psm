@@ -180,8 +180,13 @@ contract hPSM is Ownable {
             "PSM: fxToken not pegged to peggedToken"
         );
         ERC20 peggedToken = ERC20(peggedTokenAddress);
+        uint256 amountOutGross = calculateAmountForDecimalChange(
+            fxTokenAddress,
+            peggedTokenAddress,
+            amount
+        );
         require(
-            peggedToken.balanceOf(self) >= amount,
+            peggedToken.balanceOf(self) >= amountOutGross,
             "PSM: contract lacks liquidity"
         );
         fxToken fxToken = fxToken(fxTokenAddress);
@@ -191,11 +196,7 @@ contract hPSM is Ownable {
         );
         fxToken.burn(msg.sender, amount);
         uint256 amountOut = calculateAmountAfterFees(
-            calculateAmountForDecimalChange(
-                fxTokenAddress,
-                peggedTokenAddress,
-                amount
-            )
+            amountOutGross
         );
         require(amountOut > 0, "PSM: prevented nil transfer");
         peggedToken.safeTransfer(msg.sender, amountOut);
