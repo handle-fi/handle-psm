@@ -57,7 +57,7 @@ contract hPSM is Ownable {
     
     event SetFxTokenPeg(
         address indexed fxToken,
-        address indexed pegToken,
+        address indexed peggedToken,
         bool isPegged
     );
 
@@ -92,11 +92,11 @@ contract hPSM is Ownable {
     /** @dev Configures a fxToken peg to a collateral token. */
     function setFxTokenPeg(
         address fxTokenAddress,
-        address pegToken,
+        address peggedTokenAddress,
         bool isPegged
     ) external onlyOwner {
         fxToken fxToken = fxToken(fxTokenAddress);
-        assert(isFxTokenPegged[fxTokenAddress][pegToken] != isPegged);
+        assert(isFxTokenPegged[fxTokenAddress][peggedTokenAddress] != isPegged);
         require(
             handle.isFxTokenValid(fxTokenAddress),
             "PSM: not a valid fxToken"
@@ -107,13 +107,13 @@ contract hPSM is Ownable {
             "PSM: not an fxToken operator"
         );
         require(
-            !handle.isFxTokenValid(pegToken),
+            !handle.isFxTokenValid(peggedTokenAddress),
             "PSM: not a valid peg token"
         );
-        isFxTokenPegged[fxTokenAddress][pegToken] = isPegged;
+        isFxTokenPegged[fxTokenAddress][peggedTokenAddress] = isPegged;
         if (!isPegged)
             fxToken.renounceRole(operatorRole, self);
-        emit SetFxTokenPeg(fxTokenAddress, pegToken, isPegged);
+        emit SetFxTokenPeg(fxTokenAddress, peggedTokenAddress, isPegged);
     }
 
     /** @dev Sets the maximum total deposit for a pegged token. */
