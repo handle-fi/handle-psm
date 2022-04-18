@@ -127,7 +127,14 @@ contract hPSM is Ownable {
             self,
             amount
         );
-        uint256 amountOut = calculateAmountAfterFees(amount);
+        uint256 amountOut = calculateAmountAfterFees(
+            calculateAmountForDecimalChange(
+                peggedTokenAddress,
+                fxTokenAddress,
+                amount
+            )
+        );
+        require(amountOut > 0, "PSM: prevented nil transfer");
         fxToken(fxTokenAddress).mint(msg.sender, amountOut);
         emit Deposit(
             fxTokenAddress,
@@ -159,7 +166,14 @@ contract hPSM is Ownable {
             "PSM: insufficient fx balance"
         );
         fxToken.burn(msg.sender, amount);
-        uint256 amountOut = calculateAmountAfterFees(amount);
+        uint256 amountOut = calculateAmountAfterFees(
+            calculateAmountForDecimalChange(
+                fxTokenAddress,
+                peggedTokenAddress,
+                amount
+            )
+        );
+        require(amountOut > 0, "PSM: prevented nil transfer");
         peggedToken.safeTransfer(msg.sender, amountOut);
         emit Withdraw(
             fxTokenAddress,
@@ -173,5 +187,24 @@ contract hPSM is Ownable {
     /** @dev Converts an input amount to after fees. */
     function calculateAmountAfterFees(uint256 amount) private returns (uint256) {
         return amount * (1 ether - transactionFee) / 1 ether;
+    }
+
+    /** @dev Converts an amount to match a different decimal count. */
+    function calculateAmountForDecimalChange(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn
+    ) private returns (uint256) {
+        uint256 decimalsIn = uint256(ERC20(tokenIn).decimals());
+        uint256 decimalsOut = uint256(ERC20(tokenOut).decimals());
+        uint256 decimalsDiff;
+        if (decimalsIn > decimalsOut) {
+            decimalsDiff = decimalsIn - decimalsOut;
+            return amountIn / (10 ** decimalsDiff);
+        } else {
+            decimalsDiff = decimalsOut - decimalsIn;
+            return amountIn * (10 ** decimalsDiff);
+        }
+        return amountIn;
     }
 }
