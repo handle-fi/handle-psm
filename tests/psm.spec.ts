@@ -37,6 +37,8 @@ describe("hPSM", () => {
       .deploy("handle USD", "fxUSD");
     usdc = await new MockToken__factory(deployer)
       .deploy("USD Coin", "USDC", 6);
+    expect(await fxUSD.decimals()).to.equal(18);
+    expect(await usdc.decimals()).to.equal(6);
     psm = await new HPSM__factory(deployer)
       .deploy(handle.address);
   });
@@ -106,6 +108,7 @@ describe("hPSM", () => {
     expect(await fxUSD.balanceOf(await user.getAddress())).to.equal(
       ethers.utils.parseUnits("1", 18)
     );
+    expect(await usdc.balanceOf(await user.getAddress())).to.equal(0);
   });
   it("Should withdraw 1 fxUSD for 1 USDC", async () => {
     const receipt = await (await psm.connect(user).withdraw(
@@ -128,6 +131,78 @@ describe("hPSM", () => {
     expect(await usdc.balanceOf(await user.getAddress())).to.equal(
       ethers.utils.parseUnits("1", 6)
     );
+    expect(await fxUSD.balanceOf(await user.getAddress())).to.equal(0);
   });
-  
+  it("Should set 50% fee", async () => {
+    const receipt = await (await psm.setTransactionFee(
+      ethers.utils.parseEther("0.5")
+    )).wait();
+    const event: {
+      fee: BigNumber,
+    } = getEventData("SetTransactionFee", psm, receipt);
+    expect(event.fee).to.equal(ethers.utils.parseEther("0.5"));
+  });
+  it("Should deposit 1 USDC for 0.5 fxUSD (including fee)", async () => {
+    await usdc.connect(user).approve(psm.address, ethers.constants.MaxUint256);
+    const receipt = await (await psm.connect(user).deposit(
+      fxUSD.address,
+      usdc.address,
+      ethers.utils.parseUnits("1", 6)
+    )).wait();
+    const event: {
+      fxToken: string,
+      peggedToken: string,
+      account: string,
+      amountIn: BigNumber,
+      amountOut: BigNumber,
+    } = getEventData("Deposit", psm, receipt);
+    expect(event.fxToken).to.equal(fxUSD.address);
+    expect(event.peggedToken).to.equal(usdc.address);
+    expect(event.account).to.equal(await user.getAddress());
+    expect(event.amountIn).to.equal(ethers.utils.parseUnits("1", 6));
+    expect(event.amountOut).to.equal(ethers.utils.parseUnits("0.5", 18));
+    expect(await fxUSD.balanceOf(await user.getAddress())).to.equal(
+      ethers.utils.parseUnits("0.5", 18)
+    );
+    expect(await usdc.balanceOf(await user.getAddress())).to.equal(0);
+  });
+  it("Should withdraw 0.5 fxUSD for 0.25 USDC (including fee)", async () => {
+    const receipt = await (await psm.connect(user).withdraw(
+      fxUSD.address,
+      usdc.address,
+      ethers.utils.parseUnits("0.5", 18)
+    )).wait();
+    const event: {
+      fxToken: string,
+      peggedToken: string,
+      account: string,
+      amountIn: BigNumber,
+      amountOut: BigNumber,
+    } = getEventData("Withdraw", psm, receipt);
+    expect(event.fxToken).to.equal(fxUSD.address);
+    expect(event.peggedToken).to.equal(usdc.address);
+    expect(event.account).to.equal(await user.getAddress());
+    expect(event.amountIn).to.equal(ethers.utils.parseUnits("0.5", 18));
+    expect(event.amountOut).to.equal(ethers.utils.parseUnits("0.25", 6));
+    expect(await usdc.balanceOf(await user.getAddress())).to.equal(
+      ethers.utils.parseUnits("0.25", 6)
+    );
+    expect(await fxUSD.balanceOf(await user.getAddress())).to.equal(0);
+  });
+  it("Should collect the accrued 0.75 USDC in fees", async () => {
+    const accrued = await psm.accruedFees(usdc.address);
+    expect(accrued).to.equal(ethers.utils.parseUnits("0.75", 6));
+    await psm.collectAccruedFees(usdc.address);
+    expect(await usdc.balanceOf(await deployer.getAddress())).to.equal(
+      ethers.utils.parseUnits("0.75", 6)
+    );
+  });
+  it("Should not let collect fees twice", async () => {
+    const accrued = await psm.accruedFees(usdc.address);
+    expect(accrued).to.equal(0);
+    await psm.collectAccruedFees(usdc.address);
+    expect(await usdc.balanceOf(await deployer.getAddress())).to.equal(
+      ethers.utils.parseUnits("0.75", 6)
+    );
+  });
 });
