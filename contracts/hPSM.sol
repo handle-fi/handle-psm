@@ -46,10 +46,14 @@ contract hPSM is Ownable {
     address private immutable self;
     /** @dev Transaction fee with 18 decimals. */
     uint256 public transactionFee;
+    /** @dev Mapping from pegged token address to total deposit supported. */
+    mapping(address => uint256) collateralCap;
     /** @dev Mapping from fxToken to peg token address to whether the peg is set. */
     mapping(address => mapping(address => bool)) public isFxTokenPegged;
 
     event SetTransactionFee(uint256 fee);
+    
+    event SetMaximumTokenDeposit(address indexed token, uint256 amount);
     
     event SetFxTokenPeg(
         address indexed fxToken,
@@ -112,6 +116,15 @@ contract hPSM is Ownable {
         emit SetFxTokenPeg(fxTokenAddress, pegToken, isPegged);
     }
 
+    /** @dev Sets the maximum total deposit for a pegged token. */
+    function setCollateralCap(
+        address peggedToken,
+        uint256 capWithPeggedTokenDecimals
+    ) external onlyOwner {
+        collateralCap[peggedToken] = capWithPeggedTokenDecimals;
+        emit SetMaximumTokenDeposit(peggedToken, capWithPeggedTokenDecimals);
+    }
+
     /** @dev Receives a pegged token in exchange for minting fxToken for an account. */
     function deposit(
         address fxTokenAddress,
@@ -122,7 +135,18 @@ contract hPSM is Ownable {
             isFxTokenPegged[fxTokenAddress][peggedTokenAddress],
             "PSM: fxToken not pegged to peggedToken"
         );
-        ERC20(peggedTokenAddress).safeTransferFrom(
+        require(
+            amount > 0,
+            "PSM: amount must be > 0"
+        );
+        ERC20 peggedToken = ERC20(peggedTokenAddress);
+        require(
+            collateralCap[peggedTokenAddress] == 0 ||
+                amount + peggedToken.balanceOf(self)
+                    <= collateralCap[peggedTokenAddress],
+            "PSM: collateral cap exceeded"
+        );
+        peggedToken.safeTransferFrom(
             msg.sender,
             self,
             amount
