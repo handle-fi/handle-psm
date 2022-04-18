@@ -47,7 +47,9 @@ contract hPSM is Ownable {
     /** @dev Transaction fee with 18 decimals. */
     uint256 public transactionFee;
     /** @dev Mapping from pegged token address to total deposit supported. */
-    mapping(address => uint256) collateralCap;
+    mapping(address => uint256) public collateralCap;
+    /** @dev Mapping from pegged token address to accrued fee amount. */
+    mapping(address => uint256) public accruedFees;
     /** @dev Mapping from fxToken to peg token address to whether the peg is set. */
     mapping(address => mapping(address => bool)) public isFxTokenPegged;
 
@@ -80,6 +82,12 @@ contract hPSM is Ownable {
     constructor(IHandle _handle) {
         self = address(this);
         handle = _handle;
+    }
+    
+    function collectAccruedFees(address collateralToken) external onlyOwner {
+        uint256 amount = accruedFees[collateralToken];
+        if (amount == 0) return;
+        ERC20(collateralToken).transfer(msg.sender, amount);
     }
 
     /** @dev Sets the transaction fee. */
@@ -151,21 +159,27 @@ contract hPSM is Ownable {
             self,
             amount
         );
-        uint256 amountOut = calculateAmountAfterFees(
-            calculateAmountForDecimalChange(
-                peggedTokenAddress,
-                fxTokenAddress,
-                amount
-            )
+        uint256 amountOutGross = calculateAmountForDecimalChange(
+            peggedTokenAddress,
+            fxTokenAddress,
+            amount
         );
-        require(amountOut > 0, "PSM: prevented nil transfer");
-        fxToken(fxTokenAddress).mint(msg.sender, amountOut);
+        uint256 amountOutNet = calculateAmountAfterFees(
+          amountOutGross  
+        );
+        require(amountOutNet > 0, "PSM: prevented nil transfer");
+        updateFeeForCollateral(
+            peggedTokenAddress,
+            amountOutGross,
+            amountOutNet
+        );
+        fxToken(fxTokenAddress).mint(msg.sender, amountOutNet);
         emit Deposit(
             fxTokenAddress,
             peggedTokenAddress,
             msg.sender,
             amount,
-            amountOut
+            amountOutNet
         );
     }
 
@@ -195,23 +209,38 @@ contract hPSM is Ownable {
             "PSM: insufficient fx balance"
         );
         fxToken.burn(msg.sender, amount);
-        uint256 amountOut = calculateAmountAfterFees(
+        uint256 amountOutNet = calculateAmountAfterFees(
             amountOutGross
         );
-        require(amountOut > 0, "PSM: prevented nil transfer");
-        peggedToken.safeTransfer(msg.sender, amountOut);
+        require(amountOutNet > 0, "PSM: prevented nil transfer");
+        updateFeeForCollateral(
+            peggedTokenAddress,
+            amountOutGross,
+            amountOutNet
+        );
+        peggedToken.safeTransfer(msg.sender, amountOutNet);
         emit Withdraw(
             fxTokenAddress,
             peggedTokenAddress,
             msg.sender,
             amount,
-            amountOut
+            amountOutNet
         );
     }
 
     /** @dev Converts an input amount to after fees. */
     function calculateAmountAfterFees(uint256 amount) private returns (uint256) {
         return amount * (1 ether - transactionFee) / 1 ether;
+    }
+
+    function updateFeeForCollateral(
+        address collateralToken,
+        uint256 amountGross,
+        uint256 amountNet
+    ) private{
+        if (amountNet == amountGross) return;
+        assert(amountNet < amountGross);
+        accruedFees[collateralToken] += amountGross - amountNet;
     }
 
     /** @dev Converts an amount to match a different decimal count. */
