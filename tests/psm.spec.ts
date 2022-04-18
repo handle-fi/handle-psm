@@ -107,4 +107,27 @@ describe("hPSM", () => {
       ethers.utils.parseUnits("1", 18)
     );
   });
+  it("Should withdraw 1 fxUSD for 1 USDC", async () => {
+    const receipt = await (await psm.connect(user).withdraw(
+      fxUSD.address,
+      usdc.address,
+      ethers.utils.parseUnits("1", 18)
+    )).wait();
+    const event: {
+      fxToken: string,
+      peggedToken: string,
+      account: string,
+      amountIn: BigNumber,
+      amountOut: BigNumber,
+    } = getEventData("Withdraw", psm, receipt);
+    expect(event.fxToken).to.equal(fxUSD.address);
+    expect(event.peggedToken).to.equal(usdc.address);
+    expect(event.account).to.equal(await user.getAddress());
+    expect(event.amountIn).to.equal(ethers.utils.parseUnits("1", 18));
+    expect(event.amountOut).to.equal(ethers.utils.parseUnits("1", 6));
+    expect(await usdc.balanceOf(await user.getAddress())).to.equal(
+      ethers.utils.parseUnits("1", 6)
+    );
+  });
+  
 });
