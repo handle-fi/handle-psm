@@ -88,6 +88,7 @@ contract hPSM is Ownable {
         uint256 amount = accruedFees[collateralToken];
         if (amount == 0) return;
         ERC20(collateralToken).transfer(msg.sender, amount);
+        accruedFees[collateralToken] -= amount;
     }
 
     /** @dev Sets the transaction fee. */
