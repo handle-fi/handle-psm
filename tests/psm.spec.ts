@@ -9,7 +9,6 @@ import {
   Handle__factory,
   HPSM, HPSM__factory, MockToken__factory
 } from "../build/typechain";
-import exp from "constants";
 
 let handle: Handle;
 let fxUSD: FxToken;
@@ -17,8 +16,6 @@ let usdc: FxToken;
 let psm: HPSM;
 let deployer: Signer;
 let user: Wallet;
-
-const ERROR_NOT_PEGGED = "PSM: fxToken not pegged to peggedToken";
 
 describe("hPSM", () => {
   before(async () => {
@@ -49,7 +46,7 @@ describe("hPSM", () => {
         usdc.address,
         ethers.utils.parseUnits("1", 6)
      )
-    ).to.be.revertedWith(ERROR_NOT_PEGGED);
+    ).to.be.revertedWith("PSM: fxToken not pegged to peggedToken");
   });
   it("Should not allow pegging for a non-fxToken", async () => {
     // This will not work because fxUSD was not set as a fxToken in
@@ -204,5 +201,24 @@ describe("hPSM", () => {
     expect(await usdc.balanceOf(await deployer.getAddress())).to.equal(
       ethers.utils.parseUnits("0.75", 6)
     );
+  });
+  it("Should not allow depositing over cap of 1 USDC", async () => {
+    await usdc.mint(await user.getAddress(), ethers.utils.parseUnits("2", 6));
+    await psm.setCollateralCap(
+      usdc.address,
+      ethers.utils.parseUnits("1", 6)
+    );
+    await psm.connect(user).deposit(
+      fxUSD.address,
+      usdc.address,
+      ethers.utils.parseUnits("1", 6)
+   );
+    await expect(
+      psm.connect(user).deposit(
+        fxUSD.address,
+        usdc.address,
+        ethers.utils.parseUnits("1", 6)
+     )
+    ).to.be.revertedWith("PSM: collateral cap exceeded");
   });
 });
