@@ -266,4 +266,25 @@ describe("hPSM", () => {
      )
     ).to.be.revertedWith("PSM: collateral cap exceeded");
   });
+  it("Should remove the peg of USDC to fxUSD", async () => {
+    // Try setting the peg.
+    const receipt = await (await psm.setFxTokenPeg(
+      fxUSD.address,
+      usdc.address,
+      false
+    )).wait();
+    const event: {
+      fxToken: string,
+      peggedToken: string,
+      isPegged: boolean,
+    } = getEventData("SetFxTokenPeg", psm, receipt);
+    expect(event.fxToken).to.equal(fxUSD.address);
+    expect(event.peggedToken).to.equal(usdc.address);
+    expect(event.isPegged).to.be.false;
+    // PSM should have renounced role.
+    expect(await fxUSD.hasRole(
+      await fxUSD.OPERATOR_ROLE(),
+      psm.address,
+    )).to.be.false;
+  });
 });
