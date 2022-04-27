@@ -282,9 +282,8 @@ contract hPSM is Ownable {
         if (decimalsIn > decimalsOut) {
             decimalsDiff = decimalsIn - decimalsOut;
             return amountIn / (10 ** decimalsDiff);
-        } else {
-            decimalsDiff = decimalsOut - decimalsIn;
-            return amountIn * (10 ** decimalsDiff);
         }
+        decimalsDiff = decimalsOut - decimalsIn;
+        return amountIn * (10 ** decimalsDiff);
     }
 }
