@@ -17,6 +17,24 @@ let psm: HPSM;
 let deployer: Signer;
 let user: Wallet;
 
+const pauseDeposits = async () => {
+  const receipt = await (await psm.setPausedDeposits(true)).wait();
+    const event: {
+      isPaused: boolean,
+    } = getEventData("SetPauseDeposits", psm, receipt);
+    expect(event.isPaused).to.be.true;
+    expect(await psm.areDepositsPaused()).to.be.true;
+};
+
+const unpauseDeposits = async () => {
+  const receipt = await (await psm.setPausedDeposits(false)).wait();
+    const event: {
+      isPaused: boolean,
+    } = getEventData("SetPauseDeposits", psm, receipt);
+    expect(event.isPaused).to.be.false;
+    expect(await psm.areDepositsPaused()).to.be.false;
+};
+
 describe("hPSM", () => {
   before(async () => {
     deployer = (await ethers.getSigners())[0];
@@ -82,9 +100,22 @@ describe("hPSM", () => {
     expect(event.peggedToken).to.equal(usdc.address);
     expect(event.isPegged).to.be.true;
   });
-  it("Should deposit 1 USDC for 1 fxUSD", async () => {
+  it("Should pause deposits", async () => {
+    await pauseDeposits();
+  });
+  it("Should not allow depositing due to paused deposits", async () => {
     await usdc.mint(user.address, ethers.utils.parseUnits("1", 6));
     await usdc.connect(user).approve(psm.address, ethers.constants.MaxUint256);
+    await expect(psm.connect(user).deposit(
+      fxUSD.address,
+      usdc.address,
+      ethers.utils.parseUnits("1", 6)
+    )).to.be.revertedWith("PSM: deposits are paused");
+  });
+  it("Should unpause deposits", async () => {
+    await unpauseDeposits();
+  });
+  it("Should deposit 1 USDC for 1 fxUSD", async () => {
     const receipt = await (await psm.connect(user).deposit(
       fxUSD.address,
       usdc.address,
@@ -107,7 +138,15 @@ describe("hPSM", () => {
     );
     expect(await usdc.balanceOf(await user.getAddress())).to.equal(0);
   });
-  it("Should withdraw 1 fxUSD for 1 USDC", async () => {
+  it("Should have increased deposits value of fxUSD -> USDC", async () => {
+    expect(await psm.fxTokenDeposits(fxUSD.address, usdc.address)).to.equal(
+      ethers.utils.parseUnits("1", 6)
+    );
+  });
+  it("Should pause deposits before withdraw", async () => {
+    await pauseDeposits();
+  });
+  it("Should withdraw 1 fxUSD for 1 USDC while deposits are paused", async () => {
     const receipt = await (await psm.connect(user).withdraw(
       fxUSD.address,
       usdc.address,
@@ -129,6 +168,12 @@ describe("hPSM", () => {
       ethers.utils.parseUnits("1", 6)
     );
     expect(await fxUSD.balanceOf(await user.getAddress())).to.equal(0);
+  });
+  it("Should have decreased deposits value of fxUSD -> USDC", async () => {
+    expect(await psm.fxTokenDeposits(fxUSD.address, usdc.address)).to.equal(0);
+  });
+  it("Should unpause deposits", async () => {
+    await unpauseDeposits();
   });
   it("Should set 50% fee", async () => {
     const receipt = await (await psm.setTransactionFee(
