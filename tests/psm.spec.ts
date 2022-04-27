@@ -242,7 +242,8 @@ describe("hPSM", () => {
   it("Should not let collect fees twice", async () => {
     const accrued = await psm.accruedFees(usdc.address);
     expect(accrued).to.equal(0);
-    await psm.collectAccruedFees(usdc.address);
+    await expect(psm.collectAccruedFees(usdc.address))
+      .to.be.revertedWith("PSM: no fee accrual");
     expect(await usdc.balanceOf(await deployer.getAddress())).to.equal(
       ethers.utils.parseUnits("0.75", 6)
     );

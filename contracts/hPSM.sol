@@ -92,7 +92,7 @@ contract hPSM is Ownable {
     
     function collectAccruedFees(address collateralToken) external onlyOwner {
         uint256 amount = accruedFees[collateralToken];
-        if (amount == 0) return;
+        require(amount > 0, "PSM: no fee accrual");
         ERC20(collateralToken).transfer(msg.sender, amount);
         accruedFees[collateralToken] -= amount;
     }
