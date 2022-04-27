@@ -206,11 +206,6 @@ contract hPSM is Ownable {
         uint256 amount
     ) external {
         require(
-            !areDepositsPaused ||
-                fxTokenDeposits[fxTokenAddress][peggedTokenAddress] >= amount,
-            "PSM: paused + no liquidity"
-        );
-        require(
             isFxTokenPegged[fxTokenAddress][peggedTokenAddress],
             "PSM: fxToken not pegged to peggedToken"
         );
@@ -219,6 +214,11 @@ contract hPSM is Ownable {
             fxTokenAddress,
             peggedTokenAddress,
             amount
+        );
+        require(
+            !areDepositsPaused ||
+                fxTokenDeposits[fxTokenAddress][peggedTokenAddress] >= amountOutGross,
+            "PSM: paused + no liquidity"
         );
         require(
             peggedToken.balanceOf(self) >= amountOutGross,
@@ -274,6 +274,7 @@ contract hPSM is Ownable {
     ) private returns (uint256) {
         uint256 decimalsIn = uint256(ERC20(tokenIn).decimals());
         uint256 decimalsOut = uint256(ERC20(tokenOut).decimals());
+        if (decimalsIn == decimalsOut) return amountIn;
         uint256 decimalsDiff;
         if (decimalsIn > decimalsOut) {
             decimalsDiff = decimalsIn - decimalsOut;
@@ -282,6 +283,5 @@ contract hPSM is Ownable {
             decimalsDiff = decimalsOut - decimalsIn;
             return amountIn * (10 ** decimalsDiff);
         }
-        return amountIn;
     }
 }
