@@ -215,6 +215,9 @@ contract hPSM is Ownable {
             peggedTokenAddress,
             amount
         );
+        // While deposits are paused:
+        //  - users can still withdraw all the pegged token liquidity currently in the contract
+        //  - once the pegged token liquidity runs out, users can no longer call withdraw
         require(
             !areDepositsPaused ||
                 fxTokenDeposits[fxTokenAddress][peggedTokenAddress] >= amountOutGross,
