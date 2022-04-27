@@ -1,9 +1,9 @@
 module.exports = {
   skipFiles: [
-    "contracts/interfaces/fxToken.sol",
-    "contracts/interfaces/IFxToken.sol",
-    "contracts/interfaces/IHandle.sol",
-    "contracts/mocks/Handle.sol",
-    "contracts/mocks/MockToken.sol"
+    "interfaces/fxToken.sol",
+    "interfaces/IFxToken.sol",
+    "interfaces/IHandle.sol",
+    "mocks/Handle.sol",
+    "mocks/MockToken.sol"
   ]
 };
