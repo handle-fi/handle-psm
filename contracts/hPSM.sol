@@ -52,6 +52,12 @@ contract hPSM is Ownable {
     mapping(address => uint256) public accruedFees;
     /** @dev Mapping from fxToken to peg token address to whether the peg is set. */
     mapping(address => mapping(address => bool)) public isFxTokenPegged;
+    /** @dev Mapping from fxToken to peg token to deposit amount. */
+    mapping(address => mapping(address => uint256)) public fxTokenDeposits;
+    /** @dev Whether deposits are paused. */
+    bool public areDepositsPaused;
+
+    event SetPauseDeposits(bool isPaused);
 
     event SetTransactionFee(uint256 fee);
     
@@ -98,6 +104,12 @@ contract hPSM is Ownable {
         emit SetTransactionFee(transactionFee);
     }
 
+    /** @dev Sets whether deposits are paused. */
+    function setPausedDeposits(bool isPaused) external onlyOwner {
+        areDepositsPaused = isPaused;
+        emit SetPauseDeposits(isPaused);
+    }
+
     /** @dev Configures a fxToken peg to a collateral token. */
     function setFxTokenPeg(
         address fxTokenAddress,
@@ -139,7 +151,8 @@ contract hPSM is Ownable {
         address fxTokenAddress,
         address peggedTokenAddress,
         uint256 amount
-    ) external {    
+    ) external {
+        require(!areDepositsPaused, "PSM: deposits are paused");
         require(
             isFxTokenPegged[fxTokenAddress][peggedTokenAddress],
             "PSM: fxToken not pegged to peggedToken"
@@ -174,6 +187,7 @@ contract hPSM is Ownable {
             amount,
             calculateAmountAfterFees(amount)
         );
+        fxTokenDeposits[fxTokenAddress][peggedTokenAddress] += amount;
         fxToken(fxTokenAddress).mint(msg.sender, amountOutNet);
         emit Deposit(
             fxTokenAddress,
@@ -190,6 +204,11 @@ contract hPSM is Ownable {
         address peggedTokenAddress,
         uint256 amount
     ) external {
+        require(
+            !areDepositsPaused ||
+                fxTokenDeposits[fxTokenAddress][peggedTokenAddress] >= amount,
+            "PSM: paused + no liquidity"
+        );
         require(
             isFxTokenPegged[fxTokenAddress][peggedTokenAddress],
             "PSM: fxToken not pegged to peggedToken"
@@ -219,6 +238,7 @@ contract hPSM is Ownable {
             amountOutGross,
             amountOutNet
         );
+        fxTokenDeposits[fxTokenAddress][peggedTokenAddress] -= amount;
         peggedToken.safeTransfer(msg.sender, amountOutNet);
         emit Withdraw(
             fxTokenAddress,
