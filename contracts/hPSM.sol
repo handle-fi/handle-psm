@@ -187,6 +187,7 @@ contract hPSM is Ownable {
             amount,
             calculateAmountAfterFees(amount)
         );
+        // Increase fxToken (input) amount from deposits.
         fxTokenDeposits[fxTokenAddress][peggedTokenAddress] += amount;
         fxToken(fxTokenAddress).mint(msg.sender, amountOutNet);
         emit Deposit(
@@ -238,7 +239,8 @@ contract hPSM is Ownable {
             amountOutGross,
             amountOutNet
         );
-        fxTokenDeposits[fxTokenAddress][peggedTokenAddress] -= amount;
+        // Reduce fxToken (amount out, gross) amount from deposits.
+        fxTokenDeposits[fxTokenAddress][peggedTokenAddress] -= amountOutGross;
         peggedToken.safeTransfer(msg.sender, amountOutNet);
         emit Withdraw(
             fxTokenAddress,
