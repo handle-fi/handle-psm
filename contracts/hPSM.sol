@@ -86,7 +86,7 @@ contract hPSM is Ownable {
     );
 
     constructor(IHandle _handle) {
-        assert(_handle != address(0), "handle cannot be null");
+        require(address(_handle) != address(0), "PSM: handle cannot be null");
         self = address(this);
         handle = _handle;
     }

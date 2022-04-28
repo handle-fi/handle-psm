@@ -57,6 +57,11 @@ describe("hPSM", () => {
     psm = await new HPSM__factory(deployer)
       .deploy(handle.address);
   });
+  it("Should not allow to deploy with handle == address(0)", async () => {
+    await expect(
+      new HPSM__factory(deployer).deploy(ethers.constants.AddressZero)
+    ).to.be.revertedWith("PSM: handle cannot be null");
+  });
   it("Should not allow depositing for non-fxTokens", async () => {
     await expect(
       psm.connect(user).deposit(
