@@ -117,15 +117,15 @@ contract hPSM is Ownable {
         address peggedTokenAddress,
         bool isPegged
     ) external onlyOwner {
-        fxToken fxToken = fxToken(fxTokenAddress);
+        fxToken _fxToken = fxToken(fxTokenAddress);
         assert(isFxTokenPegged[fxTokenAddress][peggedTokenAddress] != isPegged);
         require(
             handle.isFxTokenValid(fxTokenAddress),
             "PSM: not a valid fxToken"
         );
-        bytes32 operatorRole = fxToken.OPERATOR_ROLE();
+        bytes32 operatorRole = _fxToken.OPERATOR_ROLE();
         require(
-            !isPegged || fxToken.hasRole(operatorRole, self),
+            !isPegged || _fxToken.hasRole(operatorRole, self),
             "PSM: not an fxToken operator"
         );
         require(
@@ -134,7 +134,7 @@ contract hPSM is Ownable {
         );
         isFxTokenPegged[fxTokenAddress][peggedTokenAddress] = isPegged;
         if (!isPegged)
-            fxToken.renounceRole(operatorRole, self);
+            _fxToken.renounceRole(operatorRole, self);
         emit SetFxTokenPeg(fxTokenAddress, peggedTokenAddress, isPegged);
     }
 
