@@ -1,4 +1,7 @@
 {
-  "kovan": { },
-  "localhost": { } 
+  "kovan": {},
+  "localhost": {},
+  "arbitrum": {
+    "hpsm": "0xa2b81201F92b2F3081e9e2900Cf01942e0BCCeD3"
+  }
 }

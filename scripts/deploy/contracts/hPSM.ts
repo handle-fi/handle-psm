@@ -3,7 +3,9 @@ import {HPSM} from "../../../build/typechain";
 
 export const contractNames = () => ["hpsm"];
 
-export const constructorArguments = () => [];
+export const constructorArguments = () => [
+  process.env.CONSTRUCTOR_HPSM_HANDLE_ADDRESS
+];
 
 export const deploy = async (deployer, setAddresses) => {
   console.log("deploying hPSM");
@@ -14,6 +16,6 @@ export const deploy = async (deployer, setAddresses) => {
     1
   ) as HPSM;
   console.log(`deployed hPSM to address ${hPSM.address}`);
-  setAddresses({ hPSM: hPSM.address });
+  setAddresses({ hpsm: hPSM.address });
   return hPSM;
 };
