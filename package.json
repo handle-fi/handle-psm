@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "prepare": "husky install",
-    "postinstall": "cross-env TS_NODE_TRANSCRIPT_ONLY=1 npx hardhat compile",
+    "postinstall": "npx hardhat compile",
     "hh:compile": "npx hardhat compile && npx hardhat size-contracts",
     "hh:deploy": "npx hardhat compile && npx ts-node scripts/deploy/index.ts",
     "hh:upgrade": "npx hardhat compile && npx ts-node scripts/deploy/index.ts upgrade-contracts",
@@ -45,7 +45,6 @@
     "@types/dotenv": "^8.2.0",
     "@types/mocha": "^9.0.0",
     "@types/node": "^15.12.4",
-    "cross-env": "^7.0.3",
     "husky": "^7.0.2",
     "prettier": "^2.4.0",
     "prettier-plugin-solidity": "^1.0.0-beta.18",

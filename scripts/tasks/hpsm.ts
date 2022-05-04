@@ -1,12 +1,12 @@
 import { task } from "hardhat/config";
 import { getLedgerSigner } from "../utils";
 import contracts from "../../contracts.json";
-import {FxToken__factory, HPSM__factory} from "../../build/typechain";
 
 task("hpsm-set-fee")
   .addParam("feepercent")
   .addOptionalParam("ledgersigner")
   .setAction(async (args, hre) => {
+    const { HPSM__factory } = require("../../build/typechain");
     let signer;
     if (!args.ledgersigner) {
       signer = (await hre.ethers.getSigners())[0];
@@ -31,6 +31,7 @@ task("hpsm-set-peg")
   .addParam("pegtoken")
   .addOptionalParam("ledgersigner")
   .setAction(async (args, hre) => {
+    const { FxToken__factory, HPSM__factory } = require("../../build/typechain");
     let signer;
     if (!args.ledgersigner) {
       signer = (await hre.ethers.getSigners())[0];
