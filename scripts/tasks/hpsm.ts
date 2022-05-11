@@ -26,6 +26,38 @@ task("hpsm-set-fee")
     console.log("...done");
   });
 
+task("hpsm-collateral-cap")
+  .addParam("pegtoken")
+  .addParam("amount")
+  .addParam("decimals")
+  .addOptionalParam("ledgersigner")
+  .setAction(async (args, hre) => {
+    const { HPSM__factory } = require("../../build/typechain");
+    let signer;
+    if (!args.ledgersigner) {
+      signer = (await hre.ethers.getSigners())[0];
+    } else {
+      signer = getLedgerSigner(args.ledgersigner, hre.ethers.provider);
+    }
+    const network = hre.network.name;
+    const hPSM = HPSM__factory
+      .connect(contracts[network].hpsm, signer);
+    if (!(parseInt(args.decimals) < 255 && parseInt(args.decimals) >= 0)) {
+      throw new Error("Decimals must be a positive integer less than 255");
+    }
+    const amount = hre.ethers.utils.parseUnits(
+      args.amount,
+      parseInt(args.decimals)
+    );
+    console.log(`setting cap of ${args.pegtoken} to ${hre.ethers.utils.formatUnits(
+      amount,
+      parseInt(args.decimals)
+    )}...`);
+    const tx = await hPSM.setCollateralCap(args.pegtoken, amount);
+    await tx.wait(1);
+    console.log("...done");
+  });
+
 task("hpsm-set-peg")
   .addParam("fxtoken")
   .addParam("pegtoken")
