@@ -1,6 +1,6 @@
 {
   "name": "@handle-fi/handle-psm",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "private": true,
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
