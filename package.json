@@ -5,10 +5,7 @@
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/handle-fi/handle-psm.git"
-  },
+  "repository": "git://github.com/handle-fi/handle-psm.git",
   "scripts": {
     "prepare": "husky install",
     "postinstall": "npx hardhat compile",
