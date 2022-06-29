@@ -19,6 +19,7 @@ jobs:
           # Defining the PRIVATE_KEY ENV variable. 
           export PRIVATE_KEY="0000000000000000000000000000000000000000000000000000000000000001"
           yarn install
+          yarn hh:compile
           yarn test
       - name: Publish to NPM
         run: npm publish
