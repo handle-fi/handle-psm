@@ -1,0 +1,26 @@
+name: Publish Package to GitHub's npmjs registry
+on:
+  release:
+    types: [created]
+jobs:
+  build_test_publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Read package.json node and npm engines version
+        uses: skjnldsv/read-package-engines-version-actions@v1.2
+        id: package-engines-versions
+      - uses: actions/setup-node@v3.2.0
+        with:
+          node-version: ${{ steps.package-engines-versions.outputs.nodeVersion }}
+          registry-url: "https://npm.pkg.github.com"
+      - name: Run unit tests
+        run: |
+          # Defining the PRIVATE_KEY ENV variable. 
+          export PRIVATE_KEY="0000000000000000000000000000000000000000000000000000000000000001"
+          yarn install
+          yarn test
+      - name: Publish to NPM
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
