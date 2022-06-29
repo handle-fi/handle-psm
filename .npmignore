@@ -1,4 +1,6 @@
 *
-!build/
-!contracts/
+!/build/
+!build/*
+!/contracts/
+!contracts/*
 !contracts.json
