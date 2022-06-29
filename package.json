@@ -1,5 +1,5 @@
 {
-  "name": "handle-psm",
+  "name": "@handle-fi/handle-psm",
   "version": "0.0.1",
   "private": true,
   "publishConfig": {
