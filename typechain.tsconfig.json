@@ -1,0 +1,17 @@
+﻿{
+  "compilerOptions": {
+    "strict": true,
+    "target": "es6",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "types": ["mocha", "chai"],
+    "rootDir": "./build/typechain",
+    "outDir": "./build/typechain/dist"
+  },
+  "include": ["./build/typechain/**/*"],
+  "exclude": ["./build/typechain/dist/*"]
+}

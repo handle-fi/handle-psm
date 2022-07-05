@@ -1,6 +1,6 @@
 {
   "name": "@handle-fi/handle-psm",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
   },
@@ -8,7 +8,7 @@
   "scripts": {
     "prepare": "husky install",
     "postinstall": "npx hardhat compile",
-    "hh:compile": "npx hardhat compile && npx hardhat size-contracts",
+    "hh:compile": "npx hardhat compile && npx hardhat size-contracts && tsc -p typechain.tsconfig.json",
     "hh:deploy": "npx hardhat compile && npx ts-node scripts/deploy/index.ts",
     "hh:upgrade": "npx hardhat compile && npx ts-node scripts/deploy/index.ts upgrade-contracts",
     "hh:node": "npx hardhat node --hostname localhost",
