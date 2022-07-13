@@ -65,16 +65,14 @@ describe("hPSM2", () => {
      )
     ).to.be.revertedWith("PSM: fxToken not pegged to peggedToken");
   });
-  it("Should not allow pegging for a non-fxToken", async () => {
-    // This will not work because fxUSD was not set as a fxToken in
-    // the mock Handle contract yet.
+  it("Should not allow pegging if address isn't an operator", async () => {
     expect(
       psm2.setFxTokenPeg(
         fxUSD.address,
         usdc.address,
         true
       )
-    ).to.be.revertedWith("PSM: not a valid fxToken");
+    ).to.be.revertedWith("PSM: not an fxToken operator");
   });
   it("Should peg USDC to fxUSD", async () => {
     // Make PSM an fxToken operator.
