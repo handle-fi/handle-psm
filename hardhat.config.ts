@@ -42,7 +42,11 @@ export default {
     arbitrum: {
       url: process.env.ARBITRUM_URL || defaultRpcUrl,
       accounts: [process.env.PRIVATE_KEY || defaultKey]
-    }
+    },
+    mainnet: {
+      url: process.env.MAINNET_URL || defaultRpcUrl,
+      accounts: [process.env.PRIVATE_KEY || defaultKey]
+    },
   },
   etherscan: {
     // Obtain etherscan API key at https://etherscan.io/
