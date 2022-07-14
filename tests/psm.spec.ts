@@ -1,13 +1,14 @@
 ﻿import { ethers } from "hardhat";
-import { Signer, BigNumber, Wallet } from "ethers";
+import { Signer, Wallet } from "ethers";
 import { expect } from "chai";
-import { getEventData } from "./utils";
 import {
   FxToken,
   FxToken__factory,
   Handle,
   Handle__factory,
-  HPSM, HPSM__factory, MockToken__factory
+  HPSM,
+  HPSM__factory,
+  MockToken__factory
 } from "../build/typechain";
 
 let handle: Handle;
@@ -18,21 +19,19 @@ let deployer: Signer;
 let user: Wallet;
 
 const pauseDeposits = async () => {
-  const receipt = await (await psm.setPausedDeposits(true)).wait();
-    const event: {
-      isPaused: boolean,
-    } = getEventData("SetPauseDeposits", psm, receipt);
-    expect(event.isPaused).to.be.true;
-    expect(await psm.areDepositsPaused()).to.be.true;
+  await expect(psm.setPausedDeposits(true))
+    .to
+    .emit(psm, "SetPauseDeposits")
+    .withArgs(true);
+  expect(await psm.areDepositsPaused()).to.be.true;
 };
 
 const unpauseDeposits = async () => {
-  const receipt = await (await psm.setPausedDeposits(false)).wait();
-    const event: {
-      isPaused: boolean,
-    } = getEventData("SetPauseDeposits", psm, receipt);
-    expect(event.isPaused).to.be.false;
-    expect(await psm.areDepositsPaused()).to.be.false;
+  await expect(psm.setPausedDeposits(false))
+    .to
+    .emit(psm, "SetPauseDeposits")
+    .withArgs(false);
+  expect(await psm.areDepositsPaused()).to.be.false;
 };
 
 describe("hPSM", () => {
@@ -91,19 +90,15 @@ describe("hPSM", () => {
       psm.address,
     );
     // Try setting the peg.
-    const receipt = await (await psm.setFxTokenPeg(
+    // const receipt = await (await p).wait();
+    await expect(psm.setFxTokenPeg(
       fxUSD.address,
       usdc.address,
       true
-    )).wait();
-    const event: {
-      fxToken: string,
-      peggedToken: string,
-      isPegged: boolean,
-    } = getEventData("SetFxTokenPeg", psm, receipt);
-    expect(event.fxToken).to.equal(fxUSD.address);
-    expect(event.peggedToken).to.equal(usdc.address);
-    expect(event.isPegged).to.be.true;
+    ))
+      .to
+      .emit(psm, "SetFxTokenPeg")
+      .withArgs(fxUSD.address, usdc.address, true);
   });
   it("Should pause deposits", async () => {
     await pauseDeposits();
@@ -121,23 +116,25 @@ describe("hPSM", () => {
     await unpauseDeposits();
   });
   it("Should deposit 1 USDC for 1 fxUSD", async () => {
-    const receipt = await (await psm.connect(user).deposit(
+    await expect(psm.connect(user).deposit(
       fxUSD.address,
       usdc.address,
       ethers.utils.parseUnits("1", 6)
-    )).wait();
-    const event: {
-      fxToken: string,
-      peggedToken: string,
-      account: string,
-      amountIn: BigNumber,
-      amountOut: BigNumber,
-    } = getEventData("Deposit", psm, receipt);
-    expect(event.fxToken).to.equal(fxUSD.address);
-    expect(event.peggedToken).to.equal(usdc.address);
-    expect(event.account).to.equal(await user.getAddress());
-    expect(event.amountIn).to.equal(ethers.utils.parseUnits("1", 6));
-    expect(event.amountOut).to.equal(ethers.utils.parseUnits("1", 18));
+    ))
+      .to
+      .emit(psm, "Deposit")
+      .withArgs(
+        // fxToken (address)
+        fxUSD.address,
+        // peggedToken (address)
+        usdc.address,
+        // account (address)
+        await user.getAddress(),
+        // amountIn (uint256)
+        ethers.utils.parseUnits("1", 6),
+        // amountOut (uint256)
+        ethers.utils.parseUnits("1", 18)
+      );
     expect(await fxUSD.balanceOf(await user.getAddress())).to.equal(
       ethers.utils.parseUnits("1", 18)
     );
@@ -152,23 +149,25 @@ describe("hPSM", () => {
     await pauseDeposits();
   });
   it("Should withdraw 1 fxUSD for 1 USDC while deposits are paused", async () => {
-    const receipt = await (await psm.connect(user).withdraw(
+    await expect(psm.connect(user).withdraw(
       fxUSD.address,
       usdc.address,
       ethers.utils.parseUnits("1", 18)
-    )).wait();
-    const event: {
-      fxToken: string,
-      peggedToken: string,
-      account: string,
-      amountIn: BigNumber,
-      amountOut: BigNumber,
-    } = getEventData("Withdraw", psm, receipt);
-    expect(event.fxToken).to.equal(fxUSD.address);
-    expect(event.peggedToken).to.equal(usdc.address);
-    expect(event.account).to.equal(await user.getAddress());
-    expect(event.amountIn).to.equal(ethers.utils.parseUnits("1", 18));
-    expect(event.amountOut).to.equal(ethers.utils.parseUnits("1", 6));
+    ))
+      .to
+      .emit(psm, "Withdraw")
+      .withArgs(
+        // fxToken (address)
+        fxUSD.address,
+        // peggedToken (address)
+        usdc.address,
+        // account (address)
+        await user.getAddress(),
+        // amountIn (uint256)
+        ethers.utils.parseUnits("1", 18),
+        // amountOut (uint256)
+        ethers.utils.parseUnits("1", 6)
+      );
     expect(await usdc.balanceOf(await user.getAddress())).to.equal(
       ethers.utils.parseUnits("1", 6)
     );
@@ -181,56 +180,59 @@ describe("hPSM", () => {
     await unpauseDeposits();
   });
   it("Should set 50% fee", async () => {
-    const receipt = await (await psm.setTransactionFee(
+    await expect(psm.setTransactionFee(
       ethers.utils.parseEther("0.5")
-    )).wait();
-    const event: {
-      fee: BigNumber,
-    } = getEventData("SetTransactionFee", psm, receipt);
-    expect(event.fee).to.equal(ethers.utils.parseEther("0.5"));
+    ))
+      .to
+      .emit(psm, "SetTransactionFee")
+      .withArgs(ethers.utils.parseEther("0.5"));
   });
   it("Should deposit 1 USDC for 0.5 fxUSD (including fee)", async () => {
     await usdc.connect(user).approve(psm.address, ethers.constants.MaxUint256);
-    const receipt = await (await psm.connect(user).deposit(
+    await expect(psm.connect(user).deposit(
       fxUSD.address,
       usdc.address,
       ethers.utils.parseUnits("1", 6)
-    )).wait();
-    const event: {
-      fxToken: string,
-      peggedToken: string,
-      account: string,
-      amountIn: BigNumber,
-      amountOut: BigNumber,
-    } = getEventData("Deposit", psm, receipt);
-    expect(event.fxToken).to.equal(fxUSD.address);
-    expect(event.peggedToken).to.equal(usdc.address);
-    expect(event.account).to.equal(await user.getAddress());
-    expect(event.amountIn).to.equal(ethers.utils.parseUnits("1", 6));
-    expect(event.amountOut).to.equal(ethers.utils.parseUnits("0.5", 18));
+    ))
+      .to
+      .emit(psm, "Deposit")
+      .withArgs(
+        // fxToken (address)
+        fxUSD.address,
+        // peggedToken (address)
+        usdc.address,
+        // account (address)
+        await user.getAddress(),
+        // amountIn (uint256)
+        ethers.utils.parseUnits("1", 6),
+        // amountOut (uint256)
+        ethers.utils.parseUnits("0.5", 18)
+      );
     expect(await fxUSD.balanceOf(await user.getAddress())).to.equal(
       ethers.utils.parseUnits("0.5", 18)
     );
     expect(await usdc.balanceOf(await user.getAddress())).to.equal(0);
   });
   it("Should withdraw 0.5 fxUSD for 0.25 USDC (including fee)", async () => {
-    const receipt = await (await psm.connect(user).withdraw(
+    await expect(psm.connect(user).withdraw(
       fxUSD.address,
       usdc.address,
       ethers.utils.parseUnits("0.5", 18)
-    )).wait();
-    const event: {
-      fxToken: string,
-      peggedToken: string,
-      account: string,
-      amountIn: BigNumber,
-      amountOut: BigNumber,
-    } = getEventData("Withdraw", psm, receipt);
-    expect(event.fxToken).to.equal(fxUSD.address);
-    expect(event.peggedToken).to.equal(usdc.address);
-    expect(event.account).to.equal(await user.getAddress());
-    expect(event.amountIn).to.equal(ethers.utils.parseUnits("0.5", 18));
-    expect(event.amountOut).to.equal(ethers.utils.parseUnits("0.25", 6));
+    ))
+      .to
+      .emit(psm, "Withdraw")
+      .withArgs(
+        // fxToken (address)
+        fxUSD.address,
+        // peggedToken (address)
+        usdc.address,
+        // account (address)
+        await user.getAddress(),
+        // amountIn (uint256)
+        ethers.utils.parseUnits("0.5", 18),
+        // amountOut (uint256)
+        ethers.utils.parseUnits("0.25", 6)
+      );
     expect(await usdc.balanceOf(await user.getAddress())).to.equal(
       ethers.utils.parseUnits("0.25", 6)
     );
@@ -274,19 +276,21 @@ describe("hPSM", () => {
   });
   it("Should remove the peg of USDC to fxUSD", async () => {
     // Try setting the peg.
-    const receipt = await (await psm.setFxTokenPeg(
+    await expect(psm.setFxTokenPeg(
       fxUSD.address,
       usdc.address,
       false
-    )).wait();
-    const event: {
-      fxToken: string,
-      peggedToken: string,
-      isPegged: boolean,
-    } = getEventData("SetFxTokenPeg", psm, receipt);
-    expect(event.fxToken).to.equal(fxUSD.address);
-    expect(event.peggedToken).to.equal(usdc.address);
-    expect(event.isPegged).to.be.false;
+    ))
+      .to
+      .emit(psm, "SetFxTokenPeg")
+      .withArgs(
+        // fxToken (address)
+        fxUSD.address,
+        // peggedToken (address)
+        usdc.address,
+        // isPegged (bool)
+        false,
+      );
     // PSM should have renounced role.
     expect(await fxUSD.hasRole(
       await fxUSD.OPERATOR_ROLE(),
