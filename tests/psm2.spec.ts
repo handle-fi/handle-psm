@@ -11,6 +11,7 @@ import {
 
 let fxUSD: FxToken;
 let usdc: FxToken;
+let dai: FxToken;
 let psm2: HPSM2;
 let deployer: Signer;
 let user: Wallet;
@@ -47,6 +48,8 @@ describe("hPSM2", () => {
       .deploy("handle USD", "fxUSD");
     usdc = await new MockToken__factory(deployer)
       .deploy("USD Coin", "USDC", 6);
+    dai = await new MockToken__factory(deployer)
+      .deploy("Dai Stablecoin", "DAI", 18);
     expect(await fxUSD.decimals()).to.equal(18);
     expect(await usdc.decimals()).to.equal(6);
     psm2 = await new HPSM2__factory(deployer).deploy();
@@ -76,7 +79,6 @@ describe("hPSM2", () => {
       psm2.address,
     );
     // Try setting the peg.
-    // const receipt = await (await p).wait();
     await expect(psm2.setFxTokenPeg(
       fxUSD.address,
       usdc.address,
@@ -85,6 +87,17 @@ describe("hPSM2", () => {
       .to
       .emit(psm2, "SetFxTokenPeg")
       .withArgs(fxUSD.address, usdc.address, true);
+  });
+  it("Should peg DAI to fxUSD", async () => {
+    // Try setting the peg.
+    await expect(psm2.setFxTokenPeg(
+      fxUSD.address,
+      dai.address,
+      true
+    ))
+      .to
+      .emit(psm2, "SetFxTokenPeg")
+      .withArgs(fxUSD.address, dai.address, true);
   });
   it("Should pause deposits", async () => {
     await pauseDeposits();
@@ -164,8 +177,8 @@ describe("hPSM2", () => {
   });
   it("Should unpause deposits", async () => {
     await unpauseDeposits();
-  });
-  it("Should set 50% fee", async () => {
+  })
+  it("Should set 50% fee for USDC", async () => {
     await expect(psm2.setTransactionFee(
       usdc.address,
       ethers.utils.parseEther("0.5")
@@ -177,6 +190,20 @@ describe("hPSM2", () => {
         usdc.address,
         // fee (uint256)
         ethers.utils.parseEther("0.5")
+      );
+  });
+  it("Should set 10% fee for DAI", async () => {
+    await expect(psm2.setTransactionFee(
+      dai.address,
+      ethers.utils.parseEther("0.1")
+    ))
+      .to
+      .emit(psm2, "SetTransactionFee")
+      .withArgs(
+        // token (address)
+        dai.address,
+        // fee (uint256)
+        ethers.utils.parseEther("0.1")
       );
   });
   it("Should deposit 1 USDC for 0.5 fxUSD (including fee)", async () => {
@@ -230,12 +257,47 @@ describe("hPSM2", () => {
     );
     expect(await fxUSD.balanceOf(await user.getAddress())).to.equal(0);
   });
+  it("Should deposit 1 DAI for 0.9 fxUSD (including fee)", async () => {
+    await dai.mint(user.address, ethers.utils.parseUnits("1", 18));
+    await dai.connect(user).approve(psm2.address, ethers.constants.MaxUint256);
+    await expect(psm2.connect(user).deposit(
+      fxUSD.address,
+      dai.address,
+      ethers.utils.parseUnits("1", 18)
+    ))
+      .to
+      .emit(psm2, "Deposit")
+      .withArgs(
+        // fxToken (address)
+        fxUSD.address,
+        // peggedToken (address)
+        dai.address,
+        // account (address)
+        await user.getAddress(),
+        // amountIn (uint256)
+        ethers.utils.parseUnits("1", 18),
+        // amountOut (uint256)
+        ethers.utils.parseUnits("0.9", 18)
+      );
+    expect(await fxUSD.balanceOf(await user.getAddress())).to.equal(
+      ethers.utils.parseUnits("0.9", 18)
+    );
+    expect(await dai.balanceOf(await user.getAddress())).to.equal(0);
+  });
   it("Should collect the accrued 0.75 USDC in fees", async () => {
     const accrued = await psm2.accruedFees(usdc.address);
     expect(accrued).to.equal(ethers.utils.parseUnits("0.75", 6));
     await psm2.collectAccruedFees(usdc.address);
     expect(await usdc.balanceOf(await deployer.getAddress())).to.equal(
       ethers.utils.parseUnits("0.75", 6)
+    );
+  });
+  it("Should collect the accrued 0.1 DAI in fees", async () => {
+    const accrued = await psm2.accruedFees(dai.address);
+    expect(accrued).to.equal(ethers.utils.parseUnits("0.1", 18));
+    await psm2.collectAccruedFees(dai.address);
+    expect(await dai.balanceOf(await deployer.getAddress())).to.equal(
+      ethers.utils.parseUnits("0.1", 18)
     );
   });
   it("Should not let collect fees twice", async () => {
