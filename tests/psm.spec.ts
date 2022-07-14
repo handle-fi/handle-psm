@@ -273,6 +273,27 @@ describe("hPSM", () => {
      )
     ).to.be.revertedWith("PSM: collateral cap exceeded");
   });
+  it("Should not allow withdrawing if there isn't liquidity", async () => {
+    await fxUSD
+      .mint(user.address, ethers.utils.parseUnits("10", 18));
+    await expect(
+      psm.connect(user).withdraw(
+        fxUSD.address,
+        usdc.address,
+        ethers.utils.parseUnits("10", 18)
+     )
+    ).to.be.revertedWith("PSM: contract lacks liquidity");
+  });
+  it("Should not allow withdrawing if there isn't liquidity, and paused", async () => {
+    await pauseDeposits();
+    await expect(
+      psm.connect(user).withdraw(
+        fxUSD.address,
+        usdc.address,
+        ethers.utils.parseUnits("10", 18)
+     )
+    ).to.be.revertedWith("PSM: paused + no liquidity");
+  });
   it("Should remove the peg of USDC to fxUSD", async () => {
     // Try setting the peg.
     await expect(psm.setFxTokenPeg(
