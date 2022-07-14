@@ -90,7 +90,6 @@ describe("hPSM", () => {
       psm.address,
     );
     // Try setting the peg.
-    // const receipt = await (await p).wait();
     await expect(psm.setFxTokenPeg(
       fxUSD.address,
       usdc.address,
