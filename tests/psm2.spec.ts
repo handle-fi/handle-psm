@@ -177,14 +177,26 @@ describe("hPSM2", () => {
   });
   it("Should unpause deposits", async () => {
     await unpauseDeposits();
-  })
-  it("Should set 50% fee for USDC", async () => {
-    await expect(psm2.setTransactionFee(
+  });
+  it("Should set 50% fee for USDC (deposit & withdrawal)", async () => {
+    await expect(psm2.setDepositTransactionFee(
       usdc.address,
       ethers.utils.parseEther("0.5")
     ))
       .to
-      .emit(psm2, "SetTransactionFee")
+      .emit(psm2, "SetDepositTransactionFee")
+      .withArgs(
+        // token (address)
+        usdc.address,
+        // fee (uint256)
+        ethers.utils.parseEther("0.5")
+      );
+    await expect(psm2.setWithdrawalTransactionFee(
+      usdc.address,
+      ethers.utils.parseEther("0.5")
+    ))
+      .to
+      .emit(psm2, "SetWithdrawalTransactionFee")
       .withArgs(
         // token (address)
         usdc.address,
@@ -192,13 +204,13 @@ describe("hPSM2", () => {
         ethers.utils.parseEther("0.5")
       );
   });
-  it("Should set 10% fee for DAI", async () => {
-    await expect(psm2.setTransactionFee(
+  it("Should set 10% fee for DAI (deposit)", async () => {
+    await expect(psm2.setDepositTransactionFee(
       dai.address,
       ethers.utils.parseEther("0.1")
     ))
       .to
-      .emit(psm2, "SetTransactionFee")
+      .emit(psm2, "SetDepositTransactionFee")
       .withArgs(
         // token (address)
         dai.address,
@@ -283,6 +295,31 @@ describe("hPSM2", () => {
       ethers.utils.parseUnits("0.9", 18)
     );
     expect(await dai.balanceOf(await user.getAddress())).to.equal(0);
+  });
+  it("Should withdraw 0.9 fxUSD for 0.9 DAI (no fee)", async () => {
+    await expect(psm2.connect(user).withdraw(
+      fxUSD.address,
+      dai.address,
+      ethers.utils.parseUnits("0.9", 18)
+    ))
+      .to
+      .emit(psm2, "Withdraw")
+      .withArgs(
+        // fxToken (address)
+        fxUSD.address,
+        // peggedToken (address)
+        dai.address,
+        // account (address)
+        await user.getAddress(),
+        // amountIn (uint256)
+        ethers.utils.parseUnits("0.9", 18),
+        // amountOut (uint256)
+        ethers.utils.parseUnits("0.9", 18)
+      );
+    expect(await dai.balanceOf(await user.getAddress())).to.equal(
+      ethers.utils.parseUnits("0.9", 18)
+    );
+    expect(await fxUSD.balanceOf(await user.getAddress())).to.equal(0);
   });
   it("Should collect the accrued 0.75 USDC in fees", async () => {
     const accrued = await psm2.accruedFees(usdc.address);
