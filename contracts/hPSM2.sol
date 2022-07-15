@@ -112,7 +112,7 @@ contract hPSM2 is Ownable {
         emit SetDepositTransactionFee(token, fee);
     }
 
-    /** @dev Sets the deposit transaction fee for a token. */
+    /** @dev Sets the withdrawal transaction fee for a token. */
     function setWithdrawalTransactionFee(
         address token,
         uint256 fee
