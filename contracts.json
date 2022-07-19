@@ -4,7 +4,5 @@
   "arbitrum": {
     "hpsm": "0xa2b81201F92b2F3081e9e2900Cf01942e0BCCeD3"
   },
-  "mainnet": {
-    "hpsm2": "0xC4972AE759430C4a3B60b63ec0838f422fF520E5"
-  }
+  "mainnet": {}
 }

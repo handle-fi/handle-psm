@@ -46,8 +46,10 @@ contract hPSM2 is Ownable {
 
     /** @dev This contract's address. */
     address private immutable self;
-    /** @dev Transaction fee with 18 decimals. */
-    uint256 public transactionFee;
+    /** @dev Mapping from pegged token to deposit fee with 18 decimals. */
+    mapping (address => uint256) public depositTransactionFees;
+    /** @dev Mapping from pegged token to withdrawal fee with 18 decimals. */
+    mapping (address => uint256) public withdrawalTransactionFees;
     /** @dev Mapping from pegged token address to total deposit supported. */
     mapping(address => uint256) public collateralCap;
     /** @dev Mapping from pegged token address to accrued fee amount. */
@@ -61,7 +63,9 @@ contract hPSM2 is Ownable {
 
     event SetPauseDeposits(bool isPaused);
 
-    event SetTransactionFee(uint256 fee);
+    event SetDepositTransactionFee(address indexed token, uint256 fee);
+
+    event SetWithdrawalTransactionFee(address indexed token, uint256 fee);
     
     event SetMaximumTokenDeposit(address indexed token, uint256 amount);
     
@@ -94,15 +98,28 @@ contract hPSM2 is Ownable {
     function collectAccruedFees(address collateralToken) external onlyOwner {
         uint256 amount = accruedFees[collateralToken];
         require(amount > 0, "PSM: no fee accrual");
-        ERC20(collateralToken).transfer(msg.sender, amount);
         accruedFees[collateralToken] -= amount;
+        ERC20(collateralToken).transfer(msg.sender, amount);
     }
 
-    /** @dev Sets the transaction fee. */
-    function setTransactionFee(uint256 fee) external onlyOwner {
+    /** @dev Sets the deposit transaction fee for a token. */
+    function setDepositTransactionFee(
+        address token,
+        uint256 fee
+    ) external onlyOwner {
         require(fee < 1 ether, "PSM: fee must be < 100%");
-        transactionFee = fee;
-        emit SetTransactionFee(transactionFee);
+        depositTransactionFees[token] = fee;
+        emit SetDepositTransactionFee(token, fee);
+    }
+
+    /** @dev Sets the withdrawal transaction fee for a token. */
+    function setWithdrawalTransactionFee(
+        address token,
+        uint256 fee
+    ) external onlyOwner {
+        require(fee < 1 ether, "PSM: fee must be < 100%");
+        withdrawalTransactionFees[token] = fee;
+        emit SetWithdrawalTransactionFee(token, fee);
     }
 
     /** @dev Sets whether deposits are paused. */
@@ -172,13 +189,15 @@ contract hPSM2 is Ownable {
             amount
         );
         uint256 amountOutNet = calculateAmountAfterFees(
-          amountOutGross  
+            peggedTokenAddress,
+            amountOutGross,
+            true
         );
         require(amountOutNet > 0, "PSM: prevented nil transfer");
         updateFeeForCollateral(
             peggedTokenAddress,
             amount,
-            calculateAmountAfterFees(amount)
+            calculateAmountAfterFees(peggedTokenAddress, amount, true)
         );
         // Increase fxToken (input) amount from deposits.
         fxTokenDeposits[fxTokenAddress][peggedTokenAddress] += amount;
@@ -227,7 +246,9 @@ contract hPSM2 is Ownable {
         );
         fxToken.burn(msg.sender, amount);
         uint256 amountOutNet = calculateAmountAfterFees(
-            amountOutGross
+            peggedTokenAddress,
+            amountOutGross,
+            false
         );
         require(amountOutNet > 0, "PSM: prevented nil transfer");
         updateFeeForCollateral(
@@ -248,7 +269,14 @@ contract hPSM2 is Ownable {
     }
 
     /** @dev Converts an input amount to after fees. */
-    function calculateAmountAfterFees(uint256 amount) private returns (uint256) {
+    function calculateAmountAfterFees(
+        address token,
+        uint256 amount,
+        bool isDeposit
+    ) private returns (uint256) {
+        uint256 transactionFee = isDeposit
+            ? depositTransactionFees[token]
+            : withdrawalTransactionFees[token];
         return amount * (1 ether - transactionFee) / 1 ether;
     }
 
@@ -256,7 +284,7 @@ contract hPSM2 is Ownable {
         address collateralToken,
         uint256 amountGross,
         uint256 amountNet
-    ) private{
+    ) private {
         if (amountNet == amountGross) return;
         assert(amountNet < amountGross);
         accruedFees[collateralToken] += amountGross - amountNet;
