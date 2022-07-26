@@ -37,9 +37,11 @@ import "./interfaces/fxToken.sol";
  *       \__|__|__|__/ \__|__|__|__/ \_|__|__/    *
 \*                                                 */
 
-/** @dev Same as hPSM but without the IHandle component.
- *       There is no fxToken validation as this contract is intended to be
- *       deployed to mainnet where there is no IHandle-compatible contract.
+/** @dev Differences from hPSM v1: 
+ *         - Does not include the IHandle component.
+ *           There is no fxToken validation as this contract is intended to be
+ *           deployed to mainnet where there is no IHandle-compatible contract.
+ *         - Allows moving liquidity out.
  */
 contract hPSM2 is Ownable {
     using SafeERC20 for ERC20;
