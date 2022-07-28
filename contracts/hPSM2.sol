@@ -350,7 +350,7 @@ contract hPSM2 is Ownable {
      * @dev Converts an input amount to after fees.
      * @param token The token to fetch the fee for.
      * @param amount The gross amount, before fees.
-     * @param bool isDeposit whether the transaction is a deposit.
+     * @param isDeposit isDeposit whether the transaction is a deposit.
      */
     function calculateAmountAfterFees(
         address token,
