@@ -41,13 +41,15 @@ import "./interfaces/fxToken.sol";
  *         - Does not include the IHandle component.
  *           There is no fxToken validation as this contract is intended to be
  *           deployed to mainnet where there is no IHandle-compatible contract.
- *         - Allows moving liquidity out.
+ *         - Allows moving liquidity out via a PCT address.
  */
 contract hPSM2 is Ownable {
     using SafeERC20 for ERC20;
 
     /** @dev This contract's address. */
     address private immutable self;
+    /** @dev The PCT (protocol controlled treasury) address */
+    address public pct;
     /** @dev Mapping from pegged token to deposit fee with 18 decimals. */
     mapping (address => uint256) public depositTransactionFees;
     /** @dev Mapping from pegged token to withdrawal fee with 18 decimals. */
@@ -70,7 +72,15 @@ contract hPSM2 is Ownable {
     event SetWithdrawalTransactionFee(address indexed token, uint256 fee);
     
     event SetMaximumTokenDeposit(address indexed token, uint256 amount);
+
+    event SetPct(address indexed pct);
     
+    event TransferFundsPct(
+        address indexed pct,
+        address indexed token,
+        uint256 amount
+    );
+
     event SetFxTokenPeg(
         address indexed fxToken,
         address indexed peggedToken,
@@ -92,6 +102,11 @@ contract hPSM2 is Ownable {
         uint256 amountIn,
         uint256 amountOut
     );
+
+    modifier onlyPct() {
+        require(msg.sender == pct, "Unauthorised: not pct");
+        _;
+    }
 
     constructor() {
         self = address(this);
@@ -156,6 +171,14 @@ contract hPSM2 is Ownable {
     ) external onlyOwner {
         collateralCap[peggedToken] = capWithPeggedTokenDecimals;
         emit SetMaximumTokenDeposit(peggedToken, capWithPeggedTokenDecimals);
+    }
+
+    /** @dev Sets the PCT address.
+     *       May disable PCT deposits by setting to address(0).
+     */
+    function setPct(address pctAddress) external onlyOwner {
+        pct = pctAddress;
+        emit SetPct(pctAddress);
     }
 
     /** @dev Receives a pegged token in exchange for minting fxToken for an account. */
@@ -267,6 +290,24 @@ contract hPSM2 is Ownable {
             msg.sender,
             amount,
             amountOutNet
+        );
+    }
+
+    /**
+     * @dev Allows the configured PCT contract to request ERC20 funds held by
+     *      this PSM contract to be invested in external protocols.
+     *      May also be used for upgrading the contract by moving liquidity
+     *      into a new deployment.
+     * @param token The token requested.
+     * @param amount The amount to be transferred.
+     */
+    function requestFundsPct(address token, uint256 amount) external onlyPct {
+        address pctAddress = pct;
+        ERC20(token).safeTransfer(pctAddress, amount);
+        emit TransferFundsPct(
+            pctAddress,
+            token,
+            amount
         );
     }
 
