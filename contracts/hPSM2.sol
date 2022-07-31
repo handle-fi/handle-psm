@@ -37,15 +37,19 @@ import "./interfaces/fxToken.sol";
  *       \__|__|__|__/ \__|__|__|__/ \_|__|__/    *
 \*                                                 */
 
-/** @dev Same as hPSM but without the IHandle component.
- *       There is no fxToken validation as this contract is intended to be
- *       deployed to mainnet where there is no IHandle-compatible contract.
+/** @dev Differences from hPSM v1: 
+ *         - Does not include the IHandle component.
+ *           There is no fxToken validation as this contract is intended to be
+ *           deployed to mainnet where there is no IHandle-compatible contract.
+ *         - Allows moving liquidity out via a PCT address.
  */
 contract hPSM2 is Ownable {
     using SafeERC20 for ERC20;
 
     /** @dev This contract's address. */
     address private immutable self;
+    /** @dev The PCT (protocol controlled treasury) address */
+    address public pct;
     /** @dev Mapping from pegged token to deposit fee with 18 decimals. */
     mapping (address => uint256) public depositTransactionFees;
     /** @dev Mapping from pegged token to withdrawal fee with 18 decimals. */
@@ -68,7 +72,15 @@ contract hPSM2 is Ownable {
     event SetWithdrawalTransactionFee(address indexed token, uint256 fee);
     
     event SetMaximumTokenDeposit(address indexed token, uint256 amount);
+
+    event SetPct(address indexed pct);
     
+    event TransferFundsPct(
+        address indexed pct,
+        address indexed token,
+        uint256 amount
+    );
+
     event SetFxTokenPeg(
         address indexed fxToken,
         address indexed peggedToken,
@@ -91,10 +103,19 @@ contract hPSM2 is Ownable {
         uint256 amountOut
     );
 
+    modifier onlyPct() {
+        require(msg.sender == pct, "Unauthorised: not pct");
+        _;
+    }
+
     constructor() {
         self = address(this);
     }
-    
+
+    /**
+     * @dev Transfers out the accrued token fees to the owner.
+     * @param collateralToken The peg collateral token to collect fees for.
+     */
     function collectAccruedFees(address collateralToken) external onlyOwner {
         uint256 amount = accruedFees[collateralToken];
         require(amount > 0, "PSM: no fee accrual");
@@ -102,7 +123,11 @@ contract hPSM2 is Ownable {
         ERC20(collateralToken).transfer(msg.sender, amount);
     }
 
-    /** @dev Sets the deposit transaction fee for a token. */
+    /**
+     * @dev Sets the deposit transaction fee for a token.
+     * @param token The token to set the deposit transaction fee for.
+     * @param fee The deposit transaction fee, where 1 ether = 100%.
+     */
     function setDepositTransactionFee(
         address token,
         uint256 fee
@@ -112,7 +137,11 @@ contract hPSM2 is Ownable {
         emit SetDepositTransactionFee(token, fee);
     }
 
-    /** @dev Sets the withdrawal transaction fee for a token. */
+    /**
+     * @dev Sets the withdrawal transaction fee for a token.
+     * @param token The token to set the withdrawal transaction fee for.
+     * @param fee The withdrawal transaction fee, where 1 ether = 100%.
+     */
     function setWithdrawalTransactionFee(
         address token,
         uint256 fee
@@ -122,13 +151,21 @@ contract hPSM2 is Ownable {
         emit SetWithdrawalTransactionFee(token, fee);
     }
 
-    /** @dev Sets whether deposits are paused. */
+    /**
+     * @dev Sets whether deposits are paused.
+     * @param isPaused Whether deposits are to be paused.
+     */
     function setPausedDeposits(bool isPaused) external onlyOwner {
         areDepositsPaused = isPaused;
         emit SetPauseDeposits(isPaused);
     }
 
-    /** @dev Configures a fxToken peg to a collateral token. */
+    /**
+     * @dev Configures a fxToken peg to a collateral token.
+     * @param fxTokenAddress The fxToken address to create the peg for.
+     * @param peggedTokenAddress The peg collateral token address.
+     * @param isPegged Whether the peg is being set.
+     */
     function setFxTokenPeg(
         address fxTokenAddress,
         address peggedTokenAddress,
@@ -147,7 +184,11 @@ contract hPSM2 is Ownable {
         emit SetFxTokenPeg(fxTokenAddress, peggedTokenAddress, isPegged);
     }
 
-    /** @dev Sets the maximum total deposit for a pegged token. */
+    /**
+     * @dev Sets the maximum total deposit for a pegged token.
+     * @param peggedToken The peg collateral token to set the collateral cap for.
+     * @param capWithPeggedTokenDecimals The cap amount with the token decimals.
+     */
     function setCollateralCap(
         address peggedToken,
         uint256 capWithPeggedTokenDecimals
@@ -156,7 +197,21 @@ contract hPSM2 is Ownable {
         emit SetMaximumTokenDeposit(peggedToken, capWithPeggedTokenDecimals);
     }
 
-    /** @dev Receives a pegged token in exchange for minting fxToken for an account. */
+    /** @dev Sets the PCT address.
+     *       May disable PCT deposits by setting to address(0).
+     * @param pctAddress The address of the new PCT.
+     */
+    function setPct(address pctAddress) external onlyOwner {
+        pct = pctAddress;
+        emit SetPct(pctAddress);
+    }
+
+    /**
+     * @dev Receives a pegged token in exchange for minting fxToken for an account.
+     * @param fxTokenAddress The fxToken address to be exchanged for the collateral token.
+     * @param peggedTokenAddress The peg collateral token to be deposited.
+     * @param amount The peg collateral token amount to be deposited.
+     */
     function deposit(
         address fxTokenAddress,
         address peggedTokenAddress,
@@ -211,7 +266,12 @@ contract hPSM2 is Ownable {
         );
     }
 
-    /** @dev Burns an account's fxToken balance in exchange for a pegged token. */
+    /**
+     * @dev Burns an account's fxToken balance in exchange for a pegged token.
+     * @param fxTokenAddress The fxToken address to exchange for a collateral token.
+     * @param peggedTokenAddress The peg collateral token to exchange to.
+     * @param amount The fxToken amount to be withdrawn.
+     */
     function withdraw(
         address fxTokenAddress,
         address peggedTokenAddress,
@@ -268,7 +328,30 @@ contract hPSM2 is Ownable {
         );
     }
 
-    /** @dev Converts an input amount to after fees. */
+    /**
+     * @dev Allows the configured PCT contract to request ERC20 funds held by
+     *      this PSM contract to be invested in external protocols.
+     *      May also be used for upgrading the contract by moving liquidity
+     *      into a new deployment.
+     * @param token The token requested.
+     * @param amount The amount to be transferred.
+     */
+    function requestFundsPct(address token, uint256 amount) external onlyPct {
+        address pctAddress = pct;
+        ERC20(token).safeTransfer(pctAddress, amount);
+        emit TransferFundsPct(
+            pctAddress,
+            token,
+            amount
+        );
+    }
+
+    /**
+     * @dev Converts an input amount to after fees.
+     * @param token The token to fetch the fee for.
+     * @param amount The gross amount, before fees.
+     * @param isDeposit whether the transaction is a deposit.
+     */
     function calculateAmountAfterFees(
         address token,
         uint256 amount,
@@ -280,6 +363,12 @@ contract hPSM2 is Ownable {
         return amount * (1 ether - transactionFee) / 1 ether;
     }
 
+    /**
+     * @dev Updates the storage value for `accruedFees` for a collateral token.
+     * @param collateralToken The token to update the fee for.
+     * @param amountGross The gross transfer amount.
+     * @param amountNet The net transfer amount.
+     */
     function updateFeeForCollateral(
         address collateralToken,
         uint256 amountGross,
@@ -290,7 +379,12 @@ contract hPSM2 is Ownable {
         accruedFees[collateralToken] += amountGross - amountNet;
     }
 
-    /** @dev Converts an amount to match a different decimal count. */
+    /**
+     * @dev Converts an amount to match a different decimal count.
+     * @param tokenIn The reference source token with same decimals as `amountIn`.
+     * @param tokenOut The reference target token with decimals of returned value.
+     * @param amountIn The amount, with decimals of `tokenIn`, to be transformed.
+     */
     function calculateAmountForDecimalChange(
         address tokenIn,
         address tokenOut,

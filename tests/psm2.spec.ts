@@ -54,6 +54,53 @@ describe("hPSM2", () => {
     expect(await usdc.decimals()).to.equal(6);
     psm2 = await new HPSM2__factory(deployer).deploy();
   });
+  it("Should allow setting the PCT address as owner", async () => {
+    expect(await psm2.pct()).to.equal(ethers.constants.AddressZero);
+    const newPctAddress = "0xdEAdc0DE000000000000000000000000deADc0de";
+    await expect(psm2.setPct(newPctAddress))
+      .to
+      .emit(psm2, "SetPct")
+      .withArgs(newPctAddress);
+    expect(await psm2.pct()).to.equal(newPctAddress);
+  });
+  it("Should not allow setting the PCT address as user", async () => {
+    await expect(psm2.connect(user).setPct(ethers.constants.AddressZero))
+      .to.be.revertedWith("Ownable: caller is not the owner");
+  });
+  it("Should not allow requesting funds out via PCT as user", async () => {
+    // set pct to owner address
+    await psm2.setPct(await deployer.getAddress());
+    // mint 1 fxUSD to pct
+    await fxUSD.mint(psm2.address, ethers.constants.WeiPerEther);
+    expect(await fxUSD.balanceOf(psm2.address))
+      .to.equal(ethers.constants.WeiPerEther);
+    // try to request funds out as user
+    await expect(psm2.connect(user).requestFundsPct(
+      fxUSD.address,
+      ethers.constants.WeiPerEther
+    ))
+      .to.be.revertedWith("Unauthorised: not pct");
+  });
+  it("Should allow requesting funds out via PCT as PCT", async () => {
+    // request 1 fxUSD from psm as pct
+    await expect(psm2.requestFundsPct(
+      fxUSD.address,
+      ethers.constants.WeiPerEther
+    ))
+      .to
+      .emit(psm2, "TransferFundsPct")
+      .withArgs(
+        // pct address
+        await deployer.getAddress(),
+        // token address
+        fxUSD.address,
+        // amount
+        ethers.constants.WeiPerEther
+      );
+    expect(await fxUSD.balanceOf(await psm2.pct()))
+      .to.be.equal(ethers.constants.WeiPerEther);
+    expect(await fxUSD.balanceOf(psm2.address)).to.be.equal(0);
+  });
   it("Should not allow depositing for non-fxTokens", async () => {
     await expect(
       psm2.connect(user).deposit(
